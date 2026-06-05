@@ -2,6 +2,30 @@
 
 Учебный мини-лаунчпад на Solana + Anchor: два on-chain контракта (SOL/USD oracle и token minter), Rust backend для обновления цены и прослушки событий, а также Remix фронтенд (папка `frontend/`).
 
+## Сдача проекта
+
+**Репозиторий:** https://github.com/slendersold/rust_solana_launchpad_task
+
+| Критерий | Статус |
+|----------|--------|
+| LiteSVM-тесты (`make test`) | 7/7 (oracle 4 + minter 3) |
+| Backend unit-тесты (`cargo test`) | 7/7 |
+| Контракты в Devnet | oracle + minter задеплоены |
+| Backend обновляет цену в Devnet | `make backend-devnet` → `oracle price updated` |
+| README: program ID + PDA + mint tx | см. раздел «Развёртывание (devnet)» |
+
+**Адреса для проверки (Devnet):**
+
+- Oracle program: `AdhczDLsiGqowzT5WhwsPPANd8e3zSBVkMNuaG7qJd7i`
+- Minter program: `5QtVSa7VpGnQ86CEp7G8wcqD4HbEGJrpwben2shN6JQM`
+- Oracle state PDA: `3VfLEoNjeivr2sXwAMRaocW82GReaTxKvtAeXnMqS566`
+
+**Примеры транзакций минта (Devnet Explorer):**
+
+1. https://explorer.solana.com/tx/575zJmzKkVcdaLhSffg3rEna4gNYw7SkrvcXSV9WT63zMA1to9e2BQGVphv5ymEBWiaB5Y7ysXWTyeHNPuyd3SNs?cluster=devnet
+2. https://explorer.solana.com/tx/2C88NbJWPcVk7pNQ8JPbNvsMQJrBtZvDEoM29aX18nUx78r8FmtbA7iGrPdBT8hXSXfQ4FruLamUkKdhuccztPHg?cluster=devnet
+3. https://explorer.solana.com/tx/5FSJuKJ9ASdoc7Q8MH6KYJhH136NmfJLGEpd2GLQHfqMz39CCGs9HLQa2dy4HFvCkz5fBEV76AU1FeFRwQGW97JY?cluster=devnet
+
 ## Развёртывание (localnet)
 
 Проверено на `solana-test-validator` (http://127.0.0.1:8899).
@@ -22,11 +46,45 @@ RPC для ссылок: `http://127.0.0.1:8899`
 - Init oracle: [UbKQLD2EQTdWzgVdXhKJDLpt3xGBCvi1UYS3ctAwVN8wbqwNQXP7JidtNRtNL2runBMMrixSKGn9PxVmRwttSeu](https://explorer.solana.com/tx/UbKQLD2EQTdWzgVdXhKJDLpt3xGBCvi1UYS3ctAwVN8wbqwNQXP7JidtNRtNL2runBMMrixSKGn9PxVmRwttSeu?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
 - Backend `update_price`: [2Xz3TZaKAQXfrPsSSRUdUkSBM3BEAE3GsZAFFUc6Mkr8cyfdc1W6YPgSsf1U8p8JnUPvJBxcHBT5o8sk37bdebBs](https://explorer.solana.com/tx/2Xz3TZaKAQXfrPsSSRUdUkSBM3BEAE3GsZAFFUc6Mkr8cyfdc1W6YPgSsf1U8p8JnUPvJBxcHBT5o8sk37bdebBs?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
 
-Backend: `cp backend/.env.example backend/.env` → `RUST_LOG=info cargo run` (в логах `oracle price updated`).
+### Минт токенов (localnet E2E)
+
+Скрипт `program/scripts/mint-tokens.js` (после `make init`):
+
+```bash
+cd program && node scripts/mint-tokens.js 3
+```
+
+- Mint #1: [cvowFJ55iFizGRjh98YT62sYWMU7FXhiU7tkc1NQ7d9gZSpT63z3ipfB4aQBuYCuDRtXb6br4qK7zTSaxdXRXwt](https://explorer.solana.com/tx/cvowFJ55iFizGRjh98YT62sYWMU7FXhiU7tkc1NQ7d9gZSpT63z3ipfB4aQBuYCuDRtXb6br4qK7zTSaxdXRXwt?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+- Mint #2: [5FU5RDYdRvnKNy7sQr3p5zd2Rsyew5bYcWDAHPfWh6TJjYc8iUc1v8mnPN56EjgRCSRXKcRNXQCasTXqnSrQwsyD](https://explorer.solana.com/tx/5FU5RDYdRvnKNy7sQr3p5zd2Rsyew5bYcWDAHPfWh6TJjYc8iUc1v8mnPN56EjgRCSRXKcRNXQCasTXqnSrQwsyD?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+- Mint #3: [3bLbALXDYKGBS28LQYMtcpowQP67Swc2Tt4R42wz7TuStbTyuTvmmTs7jx84RkFaTAdB1kw3ZnuyWSYE4RdjuzYz](https://explorer.solana.com/tx/3bLbALXDYKGBS28LQYMtcpowQP67Swc2Tt4R42wz7TuStbTyuTvmmTs7jx84RkFaTAdB1kw3ZnuyWSYE4RdjuzYz?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+
+Backend: `cp backend/.env.example backend/.env` → `RUST_LOG=info MOCK_PRICE=120000000 cargo run` (в логах `oracle price updated`; при минте через UI или скрипт — JSON с событием `TokenCreated`).
 
 ## Развёртывание (devnet)
 
-_Будет добавлено после шага 5: адреса контрактов и 2–3 ссылки на транзакции минта в [Solana Explorer](https://explorer.solana.com/?cluster=devnet)._
+Те же program ID (кастомные keypair из `program/target/deploy/`), что и на localnet:
+
+| | Адрес |
+|---|--------|
+| **Oracle program id** | `AdhczDLsiGqowzT5WhwsPPANd8e3zSBVkMNuaG7qJd7i` |
+| **Minter program id** | `5QtVSa7VpGnQ86CEp7G8wcqD4HbEGJrpwben2shN6JQM` |
+| **Oracle state PDA** | `3VfLEoNjeivr2sXwAMRaocW82GReaTxKvtAeXnMqS566` |
+| **Deploy wallet** | `3CU8j6616j5c9KVtLfkjuPgvjpTa2wmECzLW5AFWsg3z` |
+
+### Транзакции (Devnet Explorer)
+
+- Deploy oracle: [4ofVQSfinn9s8Sb1Ri271bnmCgVFwUapLAGhjqiqj9fSVo7okRyuZh4cCrS3EivyF2WE2naQEG9ksnLRr2dt5h6y](https://explorer.solana.com/tx/4ofVQSfinn9s8Sb1Ri271bnmCgVFwUapLAGhjqiqj9fSVo7okRyuZh4cCrS3EivyF2WE2naQEG9ksnLRr2dt5h6y?cluster=devnet)
+- Deploy minter: [2BFkrfSYfHF7iWQEyggqgSkso7s8Q9pm6u6ww5BKPzqSya4xMwY2smtiSzkcd8watqzesHQEkHDPJ4VdrGQzmqUN](https://explorer.solana.com/tx/2BFkrfSYfHF7iWQEyggqgSkso7s8Q9pm6u6ww5BKPzqSya4xMwY2smtiSzkcd8watqzesHQEkHDPJ4VdrGQzmqUN?cluster=devnet)
+- Init oracle: [BuiiApRYp7c5hmTrQRSE7DQv46MaLwUEtWknmmV97vWCDCr1LL8HTd4a7qa9Vke7pS7xktR55j6Jntq6MQeLPHh](https://explorer.solana.com/tx/BuiiApRYp7c5hmTrQRSE7DQv46MaLwUEtWknmmV97vWCDCr1LL8HTd4a7qa9Vke7pS7xktR55j6Jntq6MQeLPHh?cluster=devnet)
+- Init minter: [53a1KfQWngFZ3voyKh45NuYSjY36S9Cfe8MHKCG7ZZRjPjV8PeyW7Fw5sahpGB9pNnc6ZYSSePeD9pXZR6GHKCYA](https://explorer.solana.com/tx/53a1KfQWngFZ3voyKh45NuYSjY36S9Cfe8MHKCG7ZZRjPjV8PeyW7Fw5sahpGB9pNnc6ZYSSePeD9pXZR6GHKCYA?cluster=devnet)
+
+### Минт токенов (devnet)
+
+- Mint #1: [575zJmzKkVcdaLhSffg3rEna4gNYw7SkrvcXSV9WT63zMA1to9e2BQGVphv5ymEBWiaB5Y7ysXWTyeHNPuyd3SNs](https://explorer.solana.com/tx/575zJmzKkVcdaLhSffg3rEna4gNYw7SkrvcXSV9WT63zMA1to9e2BQGVphv5ymEBWiaB5Y7ysXWTyeHNPuyd3SNs?cluster=devnet)
+- Mint #2: [2C88NbJWPcVk7pNQ8JPbNvsMQJrBtZvDEoM29aX18nUx78r8FmtbA7iGrPdBT8hXSXfQ4FruLamUkKdhuccztPHg](https://explorer.solana.com/tx/2C88NbJWPcVk7pNQ8JPbNvsMQJrBtZvDEoM29aX18nUx78r8FmtbA7iGrPdBT8hXSXfQ4FruLamUkKdhuccztPHg?cluster=devnet)
+- Mint #3: [5FSJuKJ9ASdoc7Q8MH6KYJhH136NmfJLGEpd2GLQHfqMz39CCGs9HLQa2dy4HFvCkz5fBEV76AU1FeFRwQGW97JY](https://explorer.solana.com/tx/5FSJuKJ9ASdoc7Q8MH6KYJhH136NmfJLGEpd2GLQHfqMz39CCGs9HLQa2dy4HFvCkz5fBEV76AU1FeFRwQGW97JY?cluster=devnet)
+
+Backend на devnet: `make backend-devnet` (нужен `backend/.env` с program ID и `ORACLE_STATE_PUBKEY`). Проверено: сервис отправляет `update_price` в devnet; события `TokenCreated` декодируются из логов при минте (см. unit-тест `parse_token_created_reads_expected_fields`).
 
 ## Структура
 - `program/` — Anchor workspace  
