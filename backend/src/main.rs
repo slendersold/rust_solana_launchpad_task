@@ -242,6 +242,7 @@ async fn run_event_listener(cfg: Config) -> Result<()> {
         )
         .await
         .context("subscribe to logs")?;
+    info!(minter = %cfg.minter_program_id, "subscribed to minter transaction logs");
 
     while let Some(value) = stream.next().await {
         if let Some(parsed) = parse_token_created(&value.value, cfg.minter_program_id) {
@@ -265,38 +266,100 @@ async fn run_event_listener(cfg: Config) -> Result<()> {
     Ok(())
 }
 
+/// Anchor `TokenCreated` event discriminator (sha256("event:TokenCreated")[..8]).
+const TOKEN_CREATED_EVENT_DISCRIMINATOR: [u8; 8] = [236, 19, 41, 255, 130, 78, 147, 172];
+
 fn parse_token_created(logs: &RpcLogsResponse, _program_id: Pubkey) -> Option<TokenCreatedLog> {
-    let re = Regex::new(
-        r"TokenCreated \{ creator: ([A-Za-z0-9]+), mint: ([A-Za-z0-9]+), decimals: (\d+), initial_supply: (\d+), fee_lamports: (\d+), sol_usd_price: (\d+), slot: (\d+) \}",
-    )
-    .expect("regex");
-
     for log in &logs.logs {
-        if !log.contains("TokenCreated") {
-            continue;
-        }
-        if let Some(caps) = re.captures(log) {
-            let creator = caps.get(1)?.as_str().to_string();
-            let mint = caps.get(2)?.as_str().to_string();
-            let decimals = caps.get(3)?.as_str().parse().ok()?;
-            let initial_supply = caps.get(4)?.as_str().parse().ok()?;
-            let fee_lamports = caps.get(5)?.as_str().parse().ok()?;
-            let sol_usd_price = caps.get(6)?.as_str().parse().ok()?;
-            let slot = caps.get(7)?.as_str().parse().ok()?;
-
+        if let Some(parsed) = parse_token_created_from_program_data_log(log) {
             return Some(TokenCreatedLog {
-                creator,
-                mint,
-                decimals,
-                initial_supply,
-                fee_lamports,
-                sol_usd_price,
-                slot,
                 signature: logs.signature.clone(),
+                ..parsed
+            });
+        }
+        if let Some(parsed) = parse_token_created_from_text_log(log) {
+            return Some(TokenCreatedLog {
+                signature: logs.signature.clone(),
+                ..parsed
             });
         }
     }
     None
+}
+
+fn parse_token_created_from_text_log(log: &str) -> Option<TokenCreatedLog> {
+    static RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| {
+        Regex::new(
+            r"TokenCreated \{ creator: ([A-Za-z0-9]+), mint: ([A-Za-z0-9]+), decimals: (\d+), initial_supply: (\d+), fee_lamports: (\d+), sol_usd_price: (\d+), slot: (\d+) \}",
+        )
+        .expect("regex")
+    });
+
+    if !log.contains("TokenCreated") {
+        return None;
+    }
+    let caps = re.captures(log)?;
+    Some(TokenCreatedLog {
+        creator: caps.get(1)?.as_str().to_string(),
+        mint: caps.get(2)?.as_str().to_string(),
+        decimals: caps.get(3)?.as_str().parse().ok()?,
+        initial_supply: caps.get(4)?.as_str().parse().ok()?,
+        fee_lamports: caps.get(5)?.as_str().parse().ok()?,
+        sol_usd_price: caps.get(6)?.as_str().parse().ok()?,
+        slot: caps.get(7)?.as_str().parse().ok()?,
+        signature: String::new(),
+    })
+}
+
+fn parse_token_created_from_program_data_log(log: &str) -> Option<TokenCreatedLog> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    const PREFIX: &str = "Program data: ";
+    let encoded = log.strip_prefix(PREFIX)?;
+    let data = STANDARD.decode(encoded.trim()).ok()?;
+    decode_token_created_event(&data)
+}
+
+fn decode_token_created_event(data: &[u8]) -> Option<TokenCreatedLog> {
+    if data.len() < 8 + 32 + 32 + 1 + 8 * 4 {
+        return None;
+    }
+    if data[..8] != TOKEN_CREATED_EVENT_DISCRIMINATOR {
+        return None;
+    }
+
+    let mut offset = 8;
+    let creator = Pubkey::try_from(&data[offset..offset + 32]).ok()?;
+    offset += 32;
+    let mint = Pubkey::try_from(&data[offset..offset + 32]).ok()?;
+    offset += 32;
+    let decimals = data[offset];
+    offset += 1;
+
+    let read_u64 = |buf: &[u8]| -> Option<u64> {
+        let bytes: [u8; 8] = buf.try_into().ok()?;
+        Some(u64::from_le_bytes(bytes))
+    };
+
+    let initial_supply = read_u64(&data[offset..offset + 8])?;
+    offset += 8;
+    let fee_lamports = read_u64(&data[offset..offset + 8])?;
+    offset += 8;
+    let sol_usd_price = read_u64(&data[offset..offset + 8])?;
+    offset += 8;
+    let slot = read_u64(&data[offset..offset + 8])?;
+
+    Some(TokenCreatedLog {
+        creator: creator.to_string(),
+        mint: mint.to_string(),
+        decimals,
+        initial_supply,
+        fee_lamports,
+        sol_usd_price,
+        slot,
+        signature: String::new(),
+    })
 }
 
 fn to_fixed_6(txt: &str) -> Result<u64> {
@@ -392,6 +455,27 @@ mod tests {
         assert_eq!(parsed.fee_lamports, 41_666_666);
         assert_eq!(parsed.sol_usd_price, 120_000_000);
         assert_eq!(parsed.slot, 77);
+        assert_eq!(parsed.signature, logs.signature);
+    }
+
+    #[test]
+    fn parse_token_created_reads_anchor_program_data_event() {
+        let logs = RpcLogsResponse {
+            signature: "575zJmzKkVcdaLhSffg3rEna4gNYw7SkrvcXSV9WT63zMA1to9e2BQGVphv5ymEBWiaB5Y7ysXWTyeHNPuyd3SNs".to_string(),
+            err: None,
+            logs: vec![
+                "Program 5QtVSa7VpGnQ86CEp7G8wcqD4HbEGJrpwben2shN6JQM invoke [1]".to_string(),
+                "Program data: 7BMp/4JOk6wgp3E+ioOzdj5zFARh43S/++r1mXXJBjAgp18RRJ0/ySbeAYaqpClE9vOJdfJlpATS6lrhy+d4XVtYyvvVq09eBkBCDwAAAAAAash7AgAAAAAADicHAAAAAB+O2xsAAAAA".to_string(),
+            ],
+        };
+
+        let parsed = parse_token_created(&logs, Pubkey::new_unique()).expect("program data event");
+        assert_eq!(parsed.creator, "3CU8j6616j5c9KVtLfkjuPgvjpTa2wmECzLW5AFWsg3z");
+        assert_eq!(parsed.mint, "3ciqULWXmwcm3fzZhEmNrWh8HpVnFvsfteWLoBnxHYZs");
+        assert_eq!(parsed.decimals, 6);
+        assert_eq!(parsed.initial_supply, 1_000_000);
+        assert_eq!(parsed.fee_lamports, 41_666_666);
+        assert_eq!(parsed.sol_usd_price, 120_000_000);
         assert_eq!(parsed.signature, logs.signature);
     }
 
