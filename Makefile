@@ -15,7 +15,7 @@ validator-metaplex:
 	solana-test-validator --clone-upgradeable-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s --url https://api.mainnet-beta.solana.com
 
 build:
-	cd program && anchor build
+	cd program && CARGO_TARGET_DIR=$$(pwd)/target anchor build
 
 # Деплоит оба контракта на localnet (сначала запусти make validator в другом терминале)
 deploy: build
