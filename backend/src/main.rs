@@ -300,14 +300,43 @@ fn parse_token_created(logs: &RpcLogsResponse, _program_id: Pubkey) -> Option<To
 }
 
 fn to_fixed_6(txt: &str) -> Result<u64> {
-    // TODO(student): parse a decimal string into an integer with 6 fixed decimals.
-    // Examples:
-    // - "120" -> 120_000_000
-    // - "120.12" -> 120_120_000
-    // - "0.000001" -> 1
-    // Extra digits after the 6th decimal place should be truncated, not rounded.
-    let _ = txt;
-    todo!("student task: implement fixed-6 parser")
+    const SCALE: u64 = 1_000_000;
+
+    let txt = txt.trim();
+    if txt.is_empty() {
+        return Err(anyhow!("empty price string"));
+    }
+
+    let (whole, fraction) = match txt.split_once('.') {
+        Some((w, f)) => (w, f),
+        None => (txt, ""),
+    };
+
+    if whole.is_empty() && fraction.is_empty() {
+        return Err(anyhow!("invalid price string"));
+    }
+
+    if !whole.chars().all(|c| c.is_ascii_digit())
+        || !fraction.chars().all(|c| c.is_ascii_digit())
+    {
+        return Err(anyhow!("invalid price string"));
+    }
+
+    let whole_val: u64 = if whole.is_empty() {
+        0
+    } else {
+        whole.parse().context("invalid integer part")?
+    };
+
+    let frac_trunc = &fraction[..fraction.len().min(6)];
+    let mut frac_digits = frac_trunc.to_string();
+    frac_digits.push_str(&"0".repeat(6 - frac_digits.len()));
+    let frac_val: u64 = frac_digits.parse().context("invalid fractional part")?;
+
+    whole_val
+        .checked_mul(SCALE)
+        .and_then(|scaled| scaled.checked_add(frac_val))
+        .ok_or_else(|| anyhow!("price overflow"))
 }
 
 #[cfg(test)]
@@ -338,9 +367,7 @@ mod tests {
 
     #[test]
     fn to_fixed_6_truncates_fraction_to_six_digits() {
-        // TODO(student): this assertion is intentionally wrong.
-        // The parser is expected to truncate after 6 digits instead of rounding.
-        assert_eq!(to_fixed_6("1.1234569").unwrap(), 1_123_457);
+        assert_eq!(to_fixed_6("1.1234569").unwrap(), 1_123_456);
     }
 
     #[test]
