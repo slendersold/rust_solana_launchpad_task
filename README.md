@@ -2,6 +2,32 @@
 
 Учебный мини-лаунчпад на Solana + Anchor: два on-chain контракта (SOL/USD oracle и token minter), Rust backend для обновления цены и прослушки событий, а также Remix фронтенд (папка `frontend/`).
 
+## Развёртывание (localnet)
+
+Проверено на `solana-test-validator` (http://127.0.0.1:8899).
+
+| | Адрес |
+|---|--------|
+| **Oracle program id** (`sol_usd_oracle`) | `AdhczDLsiGqowzT5WhwsPPANd8e3zSBVkMNuaG7qJd7i` |
+| **Minter program id** (`token_minter`) | `5QtVSa7VpGnQ86CEp7G8wcqD4HbEGJrpwben2shN6JQM` |
+| **Oracle state PDA** (`oracle_state`) | `3VfLEoNjeivr2sXwAMRaocW82GReaTxKvtAeXnMqS566` |
+| **Oracle admin / deploy wallet** | `3CU8j6616j5c9KVtLfkjuPgvjpTa2wmECzLW5AFWsg3z` |
+
+### Транзакции (localnet Explorer)
+
+RPC для ссылок: `http://127.0.0.1:8899`
+
+- Deploy minter: [2LUeryzJpr4VEGfrd1gVzA8McT4kyWgoTWUru6RfpzoxC823gEcunbwyAtAU1gfvQN19FNy6W5wkHfLRwERNzhDq](https://explorer.solana.com/tx/2LUeryzJpr4VEGfrd1gVzA8McT4kyWgoTWUru6RfpzoxC823gEcunbwyAtAU1gfvQN19FNy6W5wkHfLRwERNzhDq?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+- Deploy oracle: [51SzpooMd1FEJz6iqCDechvLP9NiMd89Q4QjZFxd2XXGdEjWQYMPsgiGDApFvbMkBEKvmrJ5FVF7rGwYrpornMcs](https://explorer.solana.com/tx/51SzpooMd1FEJz6iqCDechvLP9NiMd89Q4QjZFxd2XXGdEjWQYMPsgiGDApFvbMkBEKvmrJ5FVF7rGwYrpornMcs?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+- Init oracle: [UbKQLD2EQTdWzgVdXhKJDLpt3xGBCvi1UYS3ctAwVN8wbqwNQXP7JidtNRtNL2runBMMrixSKGn9PxVmRwttSeu](https://explorer.solana.com/tx/UbKQLD2EQTdWzgVdXhKJDLpt3xGBCvi1UYS3ctAwVN8wbqwNQXP7JidtNRtNL2runBMMrixSKGn9PxVmRwttSeu?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+- Backend `update_price`: [2Xz3TZaKAQXfrPsSSRUdUkSBM3BEAE3GsZAFFUc6Mkr8cyfdc1W6YPgSsf1U8p8JnUPvJBxcHBT5o8sk37bdebBs](https://explorer.solana.com/tx/2Xz3TZaKAQXfrPsSSRUdUkSBM3BEAE3GsZAFFUc6Mkr8cyfdc1W6YPgSsf1U8p8JnUPvJBxcHBT5o8sk37bdebBs?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899)
+
+Backend: `cp backend/.env.example backend/.env` → `RUST_LOG=info cargo run` (в логах `oracle price updated`).
+
+## Развёртывание (devnet)
+
+_Будет добавлено после шага 5: адреса контрактов и 2–3 ссылки на транзакции минта в [Solana Explorer](https://explorer.solana.com/?cluster=devnet)._
+
 ## Структура
 - `program/` — Anchor workspace  
   - `programs/sol_usd_oracle` — хранит цену SOL/USD (decimals = 6)  
